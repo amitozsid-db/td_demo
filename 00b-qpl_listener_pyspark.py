@@ -3,14 +3,11 @@ from pyspark.sql.streaming import StreamingQueryListener
 import logging
 import sys
 import json
+import datetime
 
 # COMMAND ----------
 
-# MAGIC %run ./00-setup
-
-# COMMAND ----------
-
-config['qps_log_directory']
+# MAGIC %run ./00a-setup
 
 # COMMAND ----------
 
@@ -21,6 +18,15 @@ dbutils.fs.mkdirs(config['qps_log_directory'])
 class MyDemoListener(StreamingQueryListener):
 
     def __init__(self):
+      """
+      Constructor for the class. Called at object creation. 
+      
+      Notes
+      -----
+      Constructor sets up a logger with Time rotating file handler. with a rollover window of 5 mins
+      Only for demo purposes
+      
+      """
       self.logger = logging.getLogger('MyDemoListener')
       self.logger.setLevel(logging.INFO)
       logging_path = f"/dbfs/{config['qps_log_directory']}/qpl"
@@ -50,12 +56,12 @@ class MyDemoListener(StreamingQueryListener):
         Do not block in this method as it will block your query.
         """
         try: 
-          msg = json.dumps({"STATUS":'STREAM_STARTED','STREAM_ID': str(event.id), 'RUN_ID': str(event.runId) ,'STREAM_NAME': event.name})
+          msg = json.dumps({"EVENT_TIME": str(datetime.datetime.now()),"STATUS":'STREAM_STARTED','STREAM_ID': str(event.id), 'RUN_ID': str(event.runId) ,'STREAM_NAME': event.name})
           self.logger.info(msg)
         except Exception as e:
-          print(f"QUERY LOGGER START FAILURE: {e}", file=sys.stderr)
+          print(f"QUERY LOGGER START FAILURE: {e}", file=sys.stdout)
         pass
-
+      
     def onQueryProgress(self, event):
         """
         Called when there is some status update (ingestion rate updated, etc.)
@@ -76,10 +82,10 @@ class MyDemoListener(StreamingQueryListener):
         is terminated when you are processing `QueryProgressEvent`.
         """
         try:           
-          msg = json.dumps({"STATUS":'STREAM_UPDATED', 'BATCH_INFO': event.progress.json})          
+          msg = json.dumps({"EVENT_TIME":str(datetime.datetime.now()) ,"STATUS":'STREAM_UPDATED', 'BATCH_INFO': event.progress.json})          
           self.logger.info(msg)
         except Exception as e:
-          print(f"QUERY LOGGER PROGRESS FAILURE: {e}",file=sys.stderr)
+          print(f"QUERY LOGGER PROGRESS FAILURE: {e}",file=sys.stdout)
         
         pass
 
@@ -91,15 +97,19 @@ class MyDemoListener(StreamingQueryListener):
         ----------
         event: :class:`pyspark.sql.streaming.listener.QueryTerminatedEvent`
             The properties are available as the same as Scala API.
+            
+        Notes
+        -----
+        On query termination rollover method for the rotating file handler is triggered to generate txt file which can be read downstream.
         """
         try:      
-          msg = json.dumps({"STATUS":'STREAM_TERMINATED','STREAM_ID': str(event.id), 'RUN_ID': str(event.runId) , 'TERMINATION_EXCEPTION': event.exception})          
+          msg = json.dumps({"EVENT_TIME":str(datetime.datetime.now()) , "STATUS":'STREAM_TERMINATED','STREAM_ID': str(event.id), 'RUN_ID': str(event.runId) , 'TERMINATION_EXCEPTION': event.exception})          
           self.logger.info(msg)
           #rollover to generate final .txt file
           self.logger.handlers[0].doRollover()
         
         except Exception as e:
-          print(f"QUERY LOGGER TERMINATED FAILUER: {e}",file=sys.stderr)
+          print(f"QUERY LOGGER TERMINATED FAILUER: {e}",file=sys.stdout)
           
         pass
 
@@ -114,9 +124,9 @@ spark.streams.addListener(my_listener)
 
 # COMMAND ----------
 
-dbutils.fs.ls(config['qps_log_directory'])
+# dbutils.fs.ls(config['qps_log_directory'])
 
 # COMMAND ----------
 
-# MAGIC %sh
-# MAGIC cat /dbfs/tmp/amitoz_sidhu/fs_demo/qps_log/qpl_demo_stream_log.2022_10_27_21_16_59.txt
+#%sh
+#cat /dbfs/tmp/amitoz_sidhu/fs_demo/qps_log/qpl_demo_stream_log.2022_10_29_09_51_49.txt
