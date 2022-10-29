@@ -19,7 +19,7 @@ username_sql_compatible = useremail.split('@')[0].replace(".", "_")
 config['useremail'] = useremail
 config['database'] = f'{username_sql_compatible}_fs_demo'
 config['main_directory'] = f'/tmp/{username_sql_compatible}/fs_demo'
-config['database_path'] = f'/tmp/{username_sql_compatible}_fs_demo/table_write_path'
+config['database_path'] = f'/tmp/{username_sql_compatible}/fs_demo/table_write_path'
 config['source_directory'] = f'/tmp/{username_sql_compatible}/fs_demo/message_source'
 config['qps_log_directory'] = f'/tmp/{username_sql_compatible}/fs_demo/qps_log'
 
@@ -27,7 +27,7 @@ config['qps_log_directory'] = f'/tmp/{username_sql_compatible}/fs_demo/qps_log'
 
 def land_data(alter_schema:bool =False )-> None:
   try:
-    seek_lines = [random.randint(0,500) for i in range(0,5)]
+    seek_lines = [random.randint(0,500) for i in range(0,11)]
     time_now = datetime.datetime.now()
     file_name = re.subn('[:,.,\s,-]','_',str(time_now))[0]
     hour,min,sec = time_now.hour, time_now.minute, time_now.second
