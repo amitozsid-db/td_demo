@@ -36,10 +36,14 @@ def get_outstanding(string,exp):
 
 # COMMAND ----------
 
-raw_logs = spark.read.format('json').load(config['qps_log_directory'])
+raw_logs = spark.read.format('json').load(config['qps_log_directory']).select('*','_metadata')
 
 create_columns = ['numInputRows','inputRowsPerSecond','batchId','processedRowsPerSecond']
 create_batch_duration_ms = ['triggerExecution','queryPlanning','gatBatch','commitOffsets','latestOffset','addBatch','walCommit']
+
+
+select_cols = ['stream_id','run_id','stream_name','status','input_time','event_time','batchId','numInputRows','inputRowsPerSecond','processedRowsPerSecond',
+                'outstanding_files','triggerExecution','queryPlanning','gatBatch','commitOffsets','latestOffset','addBatch','walCommit','termination_exception','SOURCE_FILE','PARSED_BATCH_INFO']
 
 parsed_logs = (raw_logs
                .withColumn('PARSED_BATCH_INFO', get_key_val(F.col('BATCH_INFO')))
@@ -52,7 +56,7 @@ parsed_logs = (raw_logs
                .withColumn('STREAM_NAME',  F.coalesce(F.col('STREAM_NAME'), F.col('PARSED_BATCH_INFO')['name']))
                .withColumn('INPUT_TIME',F.col('EVENT_TIME').cast('timestamp'))
                .withColumn('EVENT_TIME',F.col('PARSED_BATCH_INFO').timestamp)
-               
+               .withColumn('SOURCE_FILE', F.col('_metadata').file_path)
               )
 
 for key in create_columns:
@@ -66,9 +70,7 @@ cast_to_int = ['OUTSTANDING_FILES','numInputRows','inputRowsPerSecond','batchId'
 for key in cast_to_int:
   parsed_logs = parsed_logs.withColumn(key, F.col(key).cast('int'))
 
-
-parsed_logs = parsed_logs.drop('BATCH_INFO','BATCH_DURATION_MS')
-
+parsed_logs = parsed_logs.select(select_cols)
 
 # COMMAND ----------
 
