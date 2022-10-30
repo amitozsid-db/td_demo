@@ -84,8 +84,6 @@ output_table = DeltaTable.forPath(spark, f"{config['database_path']}/client_type
  .whenNotMatchedInsertAll()
  .execute())
 
-
-
 # COMMAND ----------
 
 spark.read.format("delta").option("readChangeFeed", "true").option("startingVersion", 0).table("client_type_distribution").display()
@@ -93,15 +91,15 @@ spark.read.format("delta").option("readChangeFeed", "true").option("startingVers
 # COMMAND ----------
 
 # DBTITLE 1,dq + clone for archive
-### convert the dataframe to a format compatible with Great Expectations
-gdf = SparkDFDataset(user_prefered_channel.withColumn('date',F.col('date').cast('string')))
+# ### convert the dataframe to a format compatible with Great Expectations
+# gdf = SparkDFDataset(user_prefered_channel.withColumn('date',F.col('date').cast('string')))
 
-### start writing expectations we have about our data
-gdf.expect_column_values_to_match_strftime_format(column='date',strftime_format='%Y-%m-%d')
-gdf.expect_column_values_to_be_between("interactions", '0','9999999')
+# ### start writing expectations we have about our data
+# gdf.expect_column_values_to_match_strftime_format(column='date',strftime_format='%Y-%m-%d')
+# gdf.expect_column_values_to_be_between("interactions", '0','9999999')
 
-dbutils.fs.mkdirs(f"{config['expectation_suit_directory']}")
-gdf.save_expectation_suite(f"{config['expectation_suit_directory']}/expectations.json")
+# dbutils.fs.mkdirs(f"{config['expectation_suit_directory']}")
+# gdf.save_expectation_suite(f"{config['expectation_suit_directory']}/expectations.json")
 
 # COMMAND ----------
 

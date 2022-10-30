@@ -64,4 +64,38 @@ dlt.apply_changes(
 
 # COMMAND ----------
 
-@dlt.create_table()
+select_cols = ['time','AppRoleInstance','AppRoleName','AppVersion','ClientType','Type','clientBrowser', 'clientIP',  'ClientCity', 'Name','OperationId','OperationName','ParentId','UserId','SessionId', '_BilledSize','ItemCount','properties.recipientName', 'properties.locale','properties.activityType','properties.conversationId']
+
+# COMMAND ----------
+
+
+@dlt.expect_or_drop("ClientType null check ", "ClientType IS NOT NULL")
+@dlt.create_table(name='dlt_client_type_distribution')
+def dlt_client_type_distribution():
+  base_df = (spark.table('LIVE.dlt_silver')
+               .select(select_cols)
+               .withColumn('date',F.to_date(F.col('time'))))
+  
+  total_users = base_df.groupBy('date').agg(F.countDistinct('UserId').alias('totalUsers'))
+
+  client_type_distribution = (base_df
+                            .groupBy('date','ClientType')
+                            .agg(F.countDistinct('UserId').alias('userBase'))
+                            .join(total_users ,'date','left' )
+                            .withColumn('percentUsersCap', (F.col('userBase')/F.col('totalUsers'))*100))
+  
+  return client_type_distribution
+  
+
+# COMMAND ----------
+
+@dlt.create_table(name='dlt_user_prefered_channel')
+def dlt_user_prefered_channel():
+  base_df = (spark.table('LIVE.dlt_silver')
+               .select(select_cols)
+               .withColumn('date',F.to_date(F.col('time'))))
+  
+  user_prefered_channel = (base_df.groupBy('date','UserId',"activityType")
+                           .agg(F.sum('ItemCount').alias('interactions'), F.collect_set('AppRoleName').alias('communitcationChannel')))
+  
+  return user_prefered_channel
