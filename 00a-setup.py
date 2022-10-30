@@ -14,6 +14,7 @@ if 'config' not in locals():
 useremail = dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
 username_sql_compatible = useremail.split('@')[0].replace(".", "_")
 
+
 # COMMAND ----------
 
 config['useremail'] = useremail

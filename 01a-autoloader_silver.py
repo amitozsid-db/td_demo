@@ -25,9 +25,9 @@ def  write_first_time(df, target_location):
 #Upsert Logic
 def upsert_data(target_table, changesDF, epocId):
   """
-  
+
   """
-  
+
 #   changesDF.persist()
   updateCols = {}
   for column in changesDF.columns:
@@ -54,7 +54,7 @@ def upsert_data(target_table, changesDF, epocId):
       write_first_time(updates, target_table)
     else:
        print(f"Merge failed {e}", file=sys.stderr)
-        
+
 #   changesDF.unpersist()
   return None
   

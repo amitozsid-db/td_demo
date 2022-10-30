@@ -65,6 +65,11 @@ for key in create_columns:
 for key in create_batch_duration_ms:
   parsed_logs = parsed_logs.withColumn(key, F.col('BATCH_DURATION_MS')[key])
 
+cast_to_int = ['OUTSTANDING_FILES','numInputRows','inputRowsPerSecond','batchId','processedRowsPerSecond']
+
+for key in cast_to_int:
+  parsed_logs = parsed_logs.withColumn(key, F.col(key).cast('int'))
+
 parsed_logs = parsed_logs.select(select_cols)
 
 # COMMAND ----------

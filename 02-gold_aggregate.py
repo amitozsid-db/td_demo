@@ -74,9 +74,9 @@ output_table = DeltaTable.forPath(spark, f"{config['database_path']}/client_type
 
 (output_table
  .alias("t")
- .merge(client_type_distribution.alias("s"), 
+ .merge(client_type_distribution.alias("s"),
         "t.date = s.date and t.ClientType = s.ClientType")
- .whenMatchedUpdate(set = 
+ .whenMatchedUpdate(set =
                      {"t.userBase": "s.userBase",
                      "t.totalUsers": "s.totalUsers",
                      "t.percentUsersCap": "s.percentUsersCap"}
@@ -105,7 +105,7 @@ gdf.save_expectation_suite(f"{config['expectation_suit_directory']}/expectations
 
 # COMMAND ----------
 
-# MAGIC %sh 
+# MAGIC %sh
 # MAGIC cat /dbfs/tmp/amitoz_sidhu/fs_demo/expectation_suit/expectations.json
 
 # COMMAND ----------
@@ -126,7 +126,7 @@ gdf.validate(expectation_suite='/dbfs/tmp/amitoz_sidhu/fs_demo/expectation_suit/
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC CREATE OR REPLACE TABLE user_prefered_channel_archived  DEEP CLONE user_prefered_channel 
+# MAGIC CREATE OR REPLACE TABLE user_prefered_channel_archived  DEEP CLONE user_prefered_channel
 
 # COMMAND ----------
 
