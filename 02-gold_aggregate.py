@@ -1,9 +1,9 @@
 # Databricks notebook source
-# MAGIC %run ./00a-setup
+# MAGIC %pip install great_expectations
 
 # COMMAND ----------
 
-# MAGIC %pip install great_expectations
+# MAGIC %run ./00a-setup
 
 # COMMAND ----------
 

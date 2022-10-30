@@ -18,8 +18,7 @@ from pyspark.sql.utils import AnalysisException
 def  write_first_time(df, target_location):
   (df.drop('rowid').write.format('delta').mode('overwrite')
    .option('overwriteSchema','true')
-   .saveAsTable(f"{config['database']}
-   .{target_location.split('/')[-1]}"))
+   .saveAsTable(f"{config['database']}.{target_location.split('/')[-1]}"))
   return None
 
 #Upsert Logic
@@ -117,10 +116,10 @@ stream = (spark.readStream
 
 # COMMAND ----------
 
-# spark.table(f"delta.`{config['database_path']}"+"/audit_table`").display()
+spark.table(f"delta.`{config['database_path']}"+"/audit_table`").display()
 
 # COMMAND ----------
 
-#%sql
-#--describe history amitoz_sidhu_fs_demo.silver_table;
-#select count(*) from  amitoz_sidhu_fs_demo.silver_table
+# MAGIC %sql
+# MAGIC describe history amitoz_sidhu_fs_demo.silver_table;
+# MAGIC --select count(*) from  amitoz_sidhu_fs_demo.silver_table

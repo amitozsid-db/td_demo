@@ -1,6 +1,12 @@
 -- Databricks notebook source
+-- MAGIC %python
+-- MAGIC dbutils.fs.ls('dbfs:/tmp/amitoz_sidhu_fs_demo/fs_demo/delta_live_table_storage/')
+
+-- COMMAND ----------
+
 CREATE OR REPLACE TEMPORARY VIEW demo_dlt_loans_system_event_log_raw 
-  as SELECT * FROM delta.``;
+  as SELECT * FROM delta.`dbfs:/tmp/amitoz_sidhu_fs_demo/fs_demo/delta_live_table_storage/system/events`;
+  
 SELECT * FROM demo_dlt_loans_system_event_log_raw order by timestamp desc;
 
 -- COMMAND ----------
