@@ -61,12 +61,18 @@ for key in create_columns:
 for key in create_batch_duration_ms:
   parsed_logs = parsed_logs.withColumn(key, F.col('BATCH_DURATION_MS')[key])
 
+cast_to_int = ['OUTSTANDING_FILES','numInputRows','inputRowsPerSecond','batchId','processedRowsPerSecond']
+
+for key in cast_to_int:
+  parsed_logs = parsed_logs.withColumn(key, F.col(key).cast('int'))
+
+
 parsed_logs = parsed_logs.drop('BATCH_INFO','BATCH_DURATION_MS')
 
 
 # COMMAND ----------
 
-parsed_logs.write.format('delta').mode('overwrite').saveAsTable(f"{config['database']}.qpl_parsed")
+parsed_logs.write.format('delta').mode('overwrite').option('overwriteSchema','true').saveAsTable(f"{config['database']}.qpl_parsed")
 
 # COMMAND ----------
 

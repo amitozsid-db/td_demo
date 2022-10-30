@@ -39,7 +39,7 @@ def upsert_data(target_table, changesDF, epocId):
      .alias("t")
      .merge(
         updates.alias("s"), 
-        "t.OperationId = s.OperationId and s.time > t.time")
+        "t.OperationId = s.OperationId and s.time >= t.time")
   #    .whenMatchedDelete(condition = '')
      .whenMatchedUpdate(set = updateCols)
      .whenNotMatchedInsertAll()
@@ -78,7 +78,7 @@ land_data()
 stream = (spark.readStream
           .format("cloudFiles")
           .option("cloudFiles.format", "json")
-          .option("maxFilesPerTrigger", 1)
+#           .option("maxFilesPerTrigger", 1)
           .option("header", "true")
           .option("cloudFiles.schemaEvolutionMode", "addNewColumns") # rescue ( stream will not fail ), failOnNewColumns, none ( ignore and do not fail)
           .option("cloudFiles.schemaLocation", config['main_directory']+'/stream_schema')
