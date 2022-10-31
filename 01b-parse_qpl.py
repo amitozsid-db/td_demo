@@ -9,8 +9,6 @@ import re
 
 # COMMAND ----------
 
-# get_key_val = F.udf(lambda x: json.loads(x), 'MAP<STRING,STRING>' )
-
 @udf('MAP<STRING,STRING>' )
 def get_key_val(x):
   try:

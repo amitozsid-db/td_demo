@@ -26,7 +26,10 @@ spark.sql(f"""CREATE TABLE IF NOT EXISTS {config['database']}.client_type_distri
   userBase LONG,
   totalUsers LONG,
   percentUsersCap STRING
-) TBLPROPERTIES (
+) 
+  USING delta
+  LOCATION '{config['database_path']}/client_type_distribution'
+  TBLPROPERTIES (
   delta.enableChangeDataFeed = true,
   delta.autoOptimize.optimizeWrite = true,
   delta.autoOptimize.autoCompact = true
@@ -38,7 +41,10 @@ spark.sql(f"""CREATE TABLE IF NOT EXISTS {config['database']}.user_prefered_chan
   activityType STRING,
   interactions DOUBLE,
   communicationChannel ARRAY<STRING>
-) TBLPROPERTIES (
+)
+  USING delta
+  LOCATION  '{config['database_path']}/user_prefered_channel'
+  TBLPROPERTIES (
   delta.autoOptimize.optimizeWrite = true,
   delta.autoOptimize.autoCompact = true
 )""")
@@ -69,6 +75,15 @@ user_prefered_channel = base_df.groupBy('date','UserId',"activityType").agg(F.su
 
 # COMMAND ----------
 
+(user_prefered_channel
+ .write
+ .format('delta')
+ .mode('overwrite').option('mergeSchema','true')
+ .saveAsTable(f"{config['database']}.user_prefered_channel")
+)
+
+# COMMAND ----------
+
 # DBTITLE 1,CDF
 output_table = DeltaTable.forPath(spark, f"{config['database_path']}/client_type_distribution")
 
@@ -90,21 +105,16 @@ spark.read.format("delta").option("readChangeFeed", "true").option("startingVers
 
 # COMMAND ----------
 
-# DBTITLE 1,dq + clone for archive
-# ### convert the dataframe to a format compatible with Great Expectations
-# gdf = SparkDFDataset(user_prefered_channel.withColumn('date',F.col('date').cast('string')))
+# DBTITLE 1,Great Expectation example
+### convert the dataframe to a format compatible with Great Expectations
+gdf = SparkDFDataset(user_prefered_channel.withColumn('date',F.col('date').cast('string')))
 
-# ### start writing expectations we have about our data
-# gdf.expect_column_values_to_match_strftime_format(column='date',strftime_format='%Y-%m-%d')
-# gdf.expect_column_values_to_be_between("interactions", '0','9999999')
+### start writing expectations we have about our data
+gdf.expect_column_values_to_match_strftime_format(column='date',strftime_format='%Y-%m-%d')
+gdf.expect_column_values_to_be_between("interactions", '0','9999999')
 
-# dbutils.fs.mkdirs(f"{config['expectation_suit_directory']}")
-# gdf.save_expectation_suite(f"{config['expectation_suit_directory']}/expectations.json")
-
-# COMMAND ----------
-
-# MAGIC %sh
-# MAGIC cat /dbfs/tmp/amitoz_sidhu/fs_demo/expectation_suit/expectations.json
+dbutils.fs.mkdirs(f"{config['expectation_suit_directory']}")
+gdf.save_expectation_suite(f"{config['expectation_suit_directory']}/expectations.json")
 
 # COMMAND ----------
 
@@ -113,20 +123,10 @@ gdf.validate(expectation_suite='/dbfs/tmp/amitoz_sidhu/fs_demo/expectation_suit/
 
 # COMMAND ----------
 
-(user_prefered_channel
- .write
- .format('delta')
- .mode('overwrite').option('mergeSchema','true')
-#  .option('path',f"{config['database_path']}/user_prefered_channel")
- .saveAsTable(f"{config['database']}.user_prefered_channel")
-)
+# command to make a deep clone of a table
+spark.sql("""CREATE OR REPLACE TABLE user_prefered_channel_archived  DEEP CLONE user_prefered_channel""").display()
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC CREATE OR REPLACE TABLE user_prefered_channel_archived  DEEP CLONE user_prefered_channel
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select * from user_prefered_channel_archived
+# command to rollback to older version 
+spark.sql("""RESTORE TABLE user_prefered_channelclient_type_distribution TO VERSION AS OF 1""").display()

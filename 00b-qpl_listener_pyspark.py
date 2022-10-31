@@ -125,8 +125,3 @@ spark.streams.addListener(my_listener)
 # COMMAND ----------
 
 # dbutils.fs.ls(config['qps_log_directory'])
-
-# COMMAND ----------
-
-#%sh
-#cat /dbfs/tmp/amitoz_sidhu/fs_demo/qps_log/qpl_demo_stream_log.2022_10_29_09_51_49.txt

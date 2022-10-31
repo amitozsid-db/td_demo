@@ -3,4 +3,4 @@
 
 # COMMAND ----------
 
-spark.sql(f""" OPTIMIZE TABLE delta.`{config['database_path']+'/silver_table'}` ZORDER BY time """)
+spark.sql(f""" OPTIMIZE  delta.`{config['database_path']+'/silver_table'}` ZORDER BY time """)

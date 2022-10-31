@@ -26,7 +26,6 @@ def upsert_data(target_table, changesDF, epocId):
   """
 
   """
-
 #   changesDF.persist()
   updateCols = {}
   for column in changesDF.columns:
@@ -45,7 +44,7 @@ def upsert_data(target_table, changesDF, epocId):
         updates.alias("s"), 
         "t.OperationId = s.OperationId ")
   #    .whenMatchedDelete(condition = '')
-     .whenMatchedUpdateAll()#(set = updates.columns)#(set = updateCols().updateAll()
+     .whenMatchedUpdateAll()#(set = )
      .whenNotMatchedInsertAll()
      .execute())
   except AnalysisException as e:
@@ -80,6 +79,8 @@ def batch_data(target_table, audit_table, df, epochId):
 # COMMAND ----------
 
 land_data()
+
+# COMMAND ----------
 
 stream = (spark.readStream
           .format("cloudFiles")
@@ -120,6 +121,8 @@ spark.table(f"delta.`{config['database_path']}"+"/audit_table`").display()
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC describe history amitoz_sidhu_fs_demo.silver_table;
-# MAGIC --select count(*) from  amitoz_sidhu_fs_demo.silver_table
+spark.sql(f"describe history delta.`{config['database_path']}/silver_table`").display()
+
+# COMMAND ----------
+
+spark.sql(f"select * from delta.`{config['database_path']}/silver_table`").display()
