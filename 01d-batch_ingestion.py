@@ -76,6 +76,8 @@ files_to_read = [f"{config['source_directory']}/batch/{suffix}" for suffix in su
 files_to_read
 # spark.conf.set('spark.sql.files.ignoreMissingFiles', 'true')
 
+spark.conf.set('spark.databricks.delta.properties.defaults.autoOptimize.autoOptimizeWrite', 'true')
+
 # COMMAND ----------
 
 df = (spark.read.format('text').load(files_to_read).distinct()
@@ -152,6 +154,10 @@ spark.sql(f"""select * from delta.`{config['database_path']}/batch/bronze`""").d
 # COMMAND ----------
 
 spark.sql(f"""select * from delta.`{config['database_path']}/batch/audit_table`""").display()
+
+# COMMAND ----------
+
+spark.sql(f"""describe history delta.`{config['database_path']}/batch/bronze`""").display()
 
 # COMMAND ----------
 
