@@ -59,7 +59,7 @@ class MyDemoListener(StreamingQueryListener):
           msg = json.dumps({"EVENT_TIME": str(datetime.datetime.now()),"STATUS":'STREAM_STARTED','STREAM_ID': str(event.id), 'RUN_ID': str(event.runId) ,'STREAM_NAME': event.name})
           self.logger.info(msg)
         except Exception as e:
-          print(f"QUERY LOGGER START FAILURE: {e}", file=sys.stdout)
+          print(f"QUERY LOGGER START FAILURE: {e}", file=sys.stderr)
         pass
       
     def onQueryProgress(self, event):
@@ -85,7 +85,7 @@ class MyDemoListener(StreamingQueryListener):
           msg = json.dumps({"EVENT_TIME":str(datetime.datetime.now()) ,"STATUS":'STREAM_UPDATED', 'BATCH_INFO': event.progress.json})          
           self.logger.info(msg)
         except Exception as e:
-          print(f"QUERY LOGGER PROGRESS FAILURE: {e}",file=sys.stdout)
+          print(f"QUERY LOGGER PROGRESS FAILURE: {e}",file=sys.stderr)
         
         pass
 
@@ -109,7 +109,7 @@ class MyDemoListener(StreamingQueryListener):
           self.logger.handlers[0].doRollover()
         
         except Exception as e:
-          print(f"QUERY LOGGER TERMINATED FAILUER: {e}",file=sys.stdout)
+          print(f"QUERY LOGGER TERMINATED FAILUER: {e}",file=sys.stderr)
           
         pass
 
