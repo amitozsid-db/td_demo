@@ -87,12 +87,12 @@ land_data()
 stream = (spark.readStream
           .format("cloudFiles")
           .option("cloudFiles.format", "json")
-          .option("maxFilesPerTrigger", 1) # for demo purposes only
+#           .option("maxFilesPerTrigger", 1) # for demo purposes only
           .option("header", "true")
           .option("cloudFiles.schemaEvolutionMode", "addNewColumns") # rescue ( stream will not fail ), failOnNewColumns, none ( ignore and do not fail)
           .option("cloudFiles.schemaLocation", config['main_directory']+'/stream_schema')
           .option("cloudFiles.schemaHints", "Properties MAP<STRING,STRING>, _BilledSize INT")
-          .load(config['source_directory'])
+          .load(config['source_directory']+'/batch')
           .select(F.col("*"), F.col("_metadata"), F.col("_metadata").alias('row_created_metadata'))
          )
 

@@ -53,6 +53,53 @@ def land_data(alter_schema:bool =False )-> None:
 
 # COMMAND ----------
 
+def land_file_1()-> None:
+  try:
+   
+    readfilehandler = open('./PT1H_10_13_12.json','rb',0)
+    all_lines = readfilehandler.readlines()
+
+    write_path = f"/dbfs{config['source_directory']}/batch/y=2022/m=11/d=10/h=02/m=00"
+    dbutils.fs.mkdirs(write_path)
+    writefilehandler = open(f"{write_path}/demo_json_one.json",'wb')
+    writefilehandler.writelines(all_lines)
+    
+    readfilehandler.close()
+    writefilehandler.close()
+    
+  except Exception as e: 
+    print(f"failed to load data to source directory: {e}", sys.stderr)
+    
+  return None
+
+
+def land_file_2()-> None:
+  try:
+   
+    readfilehandler = open('./PT1H_11_02_02.json','rb',0)
+    all_lines = readfilehandler.readlines()
+
+    write_path = f"/dbfs{config['source_directory']}/batch/y=2022/m=11/d=10/h=03/m=00"
+    dbutils.fs.mkdirs(write_path)
+    writefilehandler = open(f"{write_path}/demo_json_two.json",'wb')
+    writefilehandler.writelines(all_lines)
+    
+    readfilehandler.close()
+    writefilehandler.close()
+    
+  except Exception as e: 
+    print(f"failed to load data to source directory: {e}", sys.stderr)
+    
+  return None
+
+
+def clean_batch_source():
+  dbutils.fs.rm(f"{config['source_directory']}/batch",True)
+  return None
+
+
+# COMMAND ----------
+
 def clean_setup():
   dbutils.fs.rm(config['main_directory'],True)
   spark.sql(f"DROP DATABASE IF EXISTS {config['database']} CASCADE ")
