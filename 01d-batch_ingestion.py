@@ -4,7 +4,7 @@
 # COMMAND ----------
 
 import pyspark.sql.functions as F
-from pyspark.sql import Window
+from pyspark.sql import Window, Observation
 import datetime, pytz
 import pandas as pd
 from delta.tables import DeltaTable
@@ -12,6 +12,10 @@ import json
 from pyspark.sql.utils import AnalysisException
 
 # COMMAND ----------
+
+# list  of college data with two lists
+raw_obv = Observation("my bronze read metrics")
+distinct_obv = Observation("dropped metrics")
 
 def generate_suffix(provided_start_point=None, provided_end_point=None):
   """function to generate dates which will be used to generate the files to be read"""
@@ -80,11 +84,13 @@ spark.conf.set('spark.databricks.delta.properties.defaults.autoOptimize.autoOpti
 
 # COMMAND ----------
 
-df = (spark.read.format('text').load(files_to_read).distinct()
+df = (spark.read.format('text').load(files_to_read)
       .select('*','_metadata')
+      .observe(raw_obv, F.count(F.lit(1)).alias("count"))
      )
 
-parsed = (df.withColumn('parsed_json',get_key_val('value'))
+parsed = (df.distinct()
+          .withColumn('parsed_json',get_key_val('value'))
           .withColumn('generated_md5_indx',F.md5('value'))
           .select('value','generated_md5_indx','_metadata', F.explode('parsed_json').alias('key','exp_value'))
           .groupBy('generated_md5_indx', '_metadata').pivot('key').agg(F.first('exp_value'))
@@ -127,12 +133,19 @@ def write_data_frame(updates, target_table):
     return None    
         
 
-def update_processed_log(df, audit_table)-> None:
+def update_processed_log(df, audit_table, target_table)-> None:
   """function to keep track of the files that were last processed. This will be used to identify the start for the next read"""
+  
+  delta_log = (spark.sql(f"DESCRIBE HISTORY delta.`{target_table}`"))
+  
+  write_metrics = (delta_log.join(delta_log.select(F.max(F.col('version')).alias('version')),'version','inner')
+                   .select('version','operation','operationMetrics'))
   
   audit_write_log = (df.select('_metadata.file_path','_metadata.file_name','_metadata.file_size', '_metadata.file_modification_time')
                      .withColumn('source_folder', get_source_path(F.col('file_path'))).withColumn('log_time',F.current_timestamp())
-                     .distinct())
+                     .withColumn('total_records_read', F.lit(raw_obv.get['count']))
+                    .distinct()
+                    .crossJoin(write_metrics))
                
   audit_write_log.write.format("delta").mode("append").option("mergeSchema", "true").save(audit_table)
   
@@ -141,11 +154,7 @@ def update_processed_log(df, audit_table)-> None:
 # COMMAND ----------
 
 write_data_frame(parsed, config['database_path']+'/batch/bronze')
-update_processed_log(df.select('_metadata'),  config['database_path']+'/batch/audit_table')
-
-# COMMAND ----------
-
-dbutils.fs.ls(config['database_path']+'/batch/bronze')
+update_processed_log(df.select('_metadata'),  config['database_path']+'/batch/audit_table', config['database_path']+'/batch/bronze')
 
 # COMMAND ----------
 
