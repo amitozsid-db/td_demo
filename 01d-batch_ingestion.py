@@ -9,6 +9,7 @@ import datetime, pytz
 import pandas as pd
 from delta.tables import DeltaTable
 import json
+import os
 from pyspark.sql.utils import AnalysisException
 
 # COMMAND ----------
@@ -18,7 +19,9 @@ raw_obv = Observation("my bronze read metrics")
 distinct_obv = Observation("dropped metrics")
 
 def generate_suffix(provided_start_point=None, provided_end_point=None):
-  """function to generate dates which will be used to generate the files to be read"""
+  """function to generate dates which will be used to generate the files to be read
+    IMPLEMENT LOGIC TO CHECK IF FOLDER IS MISSING
+  """
   
   start_point = (get_last_end_point() if provided_start_point is None else 
                  datetime.datetime.strptime(provided_start_point,'%Y-%m-%d:%H').replace(tzinfo=pytz.timezone("Asia/Kolkata")))
@@ -73,22 +76,25 @@ def convert_map(string):
 
 # COMMAND ----------
 
-suffix_list = generate_suffix("2022-11-10:02","2022-11-10:04")
-# suffix_list = generate_suffix()
-
-files_to_read = [f"{config['source_directory']}/batch/{suffix}" for suffix in suffix_list]
-files_to_read
-# spark.conf.set('spark.sql.files.ignoreMissingFiles', 'true')
-
+spark.conf.set('spark.sql.files.ignoreMissingFiles', 'true')
 spark.conf.set('spark.databricks.delta.properties.defaults.autoOptimize.autoOptimizeWrite', 'true')
 
 # COMMAND ----------
 
-df = (spark.read.format('text').load(files_to_read)
+suffix_list = generate_suffix("2022-11-09:02","2022-11-10:04")
+
+files_to_read = [f"{config['source_directory']}/batch/{suffix}" for suffix in suffix_list]
+filtered_files_to_read = [folder_path for folder_path in files_to_read if os.path.exists(f"/dbfs/{folder_path}")]
+
+
+# COMMAND ----------
+
+df = (spark.read.format('text').load(filtered_files_to_read)
       .select('*','_metadata')
       .observe(raw_obv, F.count(F.lit(1)).alias("count"))
      )
 
+# mulitine json logic to be added
 parsed = (df.distinct()
           .withColumn('parsed_json',get_key_val('value'))
           .withColumn('generated_md5_indx',F.md5('value'))
@@ -105,7 +111,7 @@ def  write_first_time(df, target_location):
   """
   partition if necessary
   """
-  (df.drop('_metadata').write.format('delta').mode('overwrite')
+  (df.write.format('delta').mode('overwrite')
    .option('overwriteSchema','true').option('path', target_location)
    .save())
   return None
@@ -148,12 +154,11 @@ def update_processed_log(df, audit_table, target_table)-> None:
                     .crossJoin(write_metrics))
                
   audit_write_log.write.format("delta").mode("append").option("mergeSchema", "true").save(audit_table)
-  
   return None
 
 # COMMAND ----------
 
-write_data_frame(parsed, config['database_path']+'/batch/bronze')
+write_data_frame(parsed.drop('_metadata'), config['database_path']+'/batch/bronze')
 update_processed_log(df.select('_metadata'),  config['database_path']+'/batch/audit_table', config['database_path']+'/batch/bronze')
 
 # COMMAND ----------
