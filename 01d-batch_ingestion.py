@@ -77,6 +77,7 @@ def convert_map(string):
 # COMMAND ----------
 
 spark.conf.set('spark.sql.files.ignoreMissingFiles', 'true')
+spark.conf.set('spark.databricks.delta.schema.autoMerge.enabled', 'true')
 spark.conf.set('spark.databricks.delta.properties.defaults.autoOptimize.autoOptimizeWrite', 'true')
 
 # COMMAND ----------
