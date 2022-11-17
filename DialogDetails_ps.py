@@ -25,23 +25,23 @@ output_columns_names = [
 
 # COMMAND ----------
 
-expected_source_data_columns_expr = [
-    "time as time",
-    "Name as Name",
-    "properties.conversationId as Properties_conversationId",
-    "properties.MasterBotConversationId as Properties_MasterBotConversationId",
-    "properties.text as Properties_text",
-    "properties.activityId as Properties_activityId",
-    "properties.TopAnswer as Properties_TopAnswer",
-    "properties.TopAnswerScore as Properties_TopAnswerScore",
-    "properties.intent as Properties_intent",
-    "properties.intentScore as Properties_intentScore",
-    "properties.userUtterance as Properties_userUtterance",
-    "properties.DialogId as Properties_DialogId",
-    "properties.StepName as Properties_StepName",
-    "properties.InstanceId as Properties_InstanceId",
-    "AppRoleName as AppRoleName"
-]
+expected_source_data_columns_expr = {
+    "time" : "time",
+    "Name" : "Name",
+    "properties.conversationId" : "Properties_conversationId",
+    "properties.MasterBotConversationId" : "Properties_MasterBotConversationId",
+    "properties.text" : "Properties_text",
+    "properties.activityId" : "Properties_activityId",
+    "properties.TopAnswer" : "Properties_TopAnswer",
+    "properties.TopAnswerScore" : "Properties_TopAnswerScore",
+    "properties.intent" : "Properties_intent",
+    "properties.intentScore" : "Properties_intentScore",
+    "properties.userUtterance" : "Properties_userUtterance",
+    "properties.DialogId" : "Properties_DialogId",
+    "properties.StepName" : "Properties_StepName",
+    "properties.InstanceId" : "Properties_InstanceId",
+    "AppRoleName" : "AppRoleName"
+}
 
 # COMMAND ----------
 
@@ -50,13 +50,16 @@ def create_df(data_table, expected_source_data_columns_expr, date_range):
   
   """
     # missing column logic to be added if required
-  df = (spark.table(data_table)
+  base_df = (spark.table(data_table)
+        .withColumn('date', F.to_date(F.col('time')))
 #           .where(F.col('date').isin(date_range)) #  filter for required date range if required
-          .selectExpr(expected_source_data_columns_expr)
-          .withColumn("ConversationId",F.coalesce(F.col("Properties_MasterBotConversationId"),F.col("Properties_conversationId")))
          )
-    
-  return df
+  
+  for _as,to in expected_source_data_columns_expr.items():
+    base_df = base_df.withColumn(to,F.col(_as))
+
+  final_df =base_df.withColumn("ConversationId",F.coalesce(F.col("Properties_MasterBotConversationId"),F.col("Properties_conversationId")))
+  return final_df
 
 # COMMAND ----------
 
@@ -211,7 +214,6 @@ def orchestration_function_process_data(mode,table, expected_source_data_columns
     
 
     poc_df  = create_df(table,expected_source_data_columns_expr, dates) 
-    poc_df = poc_df.withColumn('date', F.to_date(F.col('time')))
     filtered_conv = poc_df.where((F.col('conversationId').isNotNull()) & (F.col('conversationId').endswith("-in")))
     
     expected_schema = "Dialog: string, ConversationId: string, start_time: string, end_time: string, AbandonedUserLeftDialog: boolean, AbandonedUserCancelledDialog: boolean, FailedDialog: boolean, AgentDialog: boolean"

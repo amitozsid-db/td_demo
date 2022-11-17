@@ -118,6 +118,7 @@ def get_conversation_details(mode, start_date=None, end_date=None):
         summary_df.loc[0,"OpenAgentDialogs"] = len(open_agent_connection)
         summary_df.loc[0,"ClosedAgentDialogs"] = len(closed_agent_connection)
         summary_df.loc[0,"FCRDialogs"] = len(filtered_df) - (len(abandoned_dialogs) + len(failed_dialogs) + len(agent_escalations))
+        
         summary_df.loc[0,"FCRPct"] = round((summary_df.loc[0,"FCRDialogs"] / (summary_df.loc[0,"TotalDialogs"] - summary_df.loc[0,"AbandonedDialogs"]))*100,2) if summary_df.loc[0,"TotalDialogs"] > 0 else 0 
         summary_df.loc[0,"FailedPct"] = round((summary_df.loc[0,"FailedDailogs"] / (summary_df.loc[0,"TotalDialogs"] - summary_df.loc[0,"AbandonedDialogs"]))*100,2) if summary_df.loc[0,"TotalDialogs"] > 0 else 0 
         summary_df.loc[0,"FBRPct"] = round((summary_df.loc[0,"AgentDialogs"] / (summary_df.loc[0,"TotalDialogs"] - summary_df.loc[0,"AbandonedDialogs"]))*100,2) if summary_df.loc[0,"TotalDialogs"] > 0 else 0 
