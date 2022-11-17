@@ -20,7 +20,6 @@ distinct_obv = Observation("dropped metrics")
 
 def generate_suffix(provided_start_point=None, provided_end_point=None):
   """function to generate dates which will be used to generate the files to be read
-    IMPLEMENT LOGIC TO CHECK IF FOLDER IS MISSING
   """
   
   start_point = (get_last_end_point() if provided_start_point is None else 
@@ -87,6 +86,21 @@ suffix_list = generate_suffix("2022-11-09:02","2022-11-10:04")
 files_to_read = [f"{config['source_directory']}/batch/{suffix}" for suffix in suffix_list]
 filtered_files_to_read = [folder_path for folder_path in files_to_read if os.path.exists(f"/dbfs/{folder_path}")]
 
+# COMMAND ----------
+
+def traverse_dir_recur(dir):
+  l = dbutils.fs.ls(dir)
+  files = []
+  for ob in l:
+    if ob.path == dir:
+      files += [ob.path]
+    else:
+      files += traverse_dir_recur(ob.path)
+  return files
+
+# COMMAND ----------
+
+traverse_dir_recur(f"{config['source_directory']}/batch")
 
 # COMMAND ----------
 
