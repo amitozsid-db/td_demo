@@ -50,13 +50,13 @@ def create_df(data_table, expected_source_data_columns_expr, date_range):
   
   """
     # missing column logic to be added if required
-    df = (spark.table(data_table)
+  df = (spark.table(data_table)
 #           .where(F.col('date').isin(date_range)) #  filter for required date range if required
           .selectExpr(expected_source_data_columns_expr)
           .withColumn("ConversationId",F.coalesce(F.col("Properties_MasterBotConversationId"),F.col("Properties_conversationId")))
          )
     
-    return df
+  return df
 
 # COMMAND ----------
 
@@ -227,6 +227,10 @@ start_date = date(2022,11,10)
 end_date = date(2022,11,11)
 
 output = orchestration_function_process_data('',f"delta.`{config['database_path']}/batch/bronze`", expected_source_data_columns_expr, start_date, end_date)
+
+# COMMAND ----------
+
+output.write.format('delta').option('path',f"{config['main_directory']}/silver_jump").save()
 
 # COMMAND ----------
 
