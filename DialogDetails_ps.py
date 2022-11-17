@@ -23,6 +23,9 @@ output_columns_names = [
     "AgentDialog",
 ]
 
+expected_output_schema = """Dialog: string, ConversationId: string, start_time: string, end_time: string, 
+    AbandonedUserLeftDialog: boolean, AbandonedUserCancelledDialog: boolean, FailedDialog: boolean, AgentDialog: boolean"""
+
 # COMMAND ----------
 
 expected_source_data_columns_expr = {
@@ -58,16 +61,19 @@ def create_df(data_table, expected_source_data_columns_expr, date_range):
   for _as,to in expected_source_data_columns_expr.items():
     base_df = base_df.withColumn(to,F.col(_as))
 
-  final_df =base_df.withColumn("ConversationId",F.coalesce(F.col("Properties_MasterBotConversationId"),F.col("Properties_conversationId")))
+  final_df = base_df.withColumn("ConversationId",F.coalesce(F.col("Properties_MasterBotConversationId"),F.col("Properties_conversationId")))
   return final_df
 
 # COMMAND ----------
 
 def get_Properties_activityId(df):
-    Properties_activityId = df[((df['Name'] == 'BotMessageReceived') & (df['Properties_text'].notnull()))]['Properties_activityId'].values
-    return list(OrderedDict.fromkeys(Properties_activityId))
+  """
+  """
+  Properties_activityId = df[((df['Name'] == 'BotMessageReceived') & (df['Properties_text'].notnull()))]['Properties_activityId'].values
+  return list(OrderedDict.fromkeys(Properties_activityId))
   
 def get_Properties_InstanceId(df, Properties_activityId):
+  """"""
   Properties_InstanceId = df[(df['Properties_InstanceId'].notnull()) & (df.Properties_activityId.isin(Properties_activityId))]['Properties_InstanceId'].values
   return list(OrderedDict.fromkeys(Properties_InstanceId))
 
@@ -185,6 +191,9 @@ def get_final_df(df, dialog_group_df, all_dialogs_from_db):
 def apply_business_logic(conv_id_df: pd.DataFrame) -> pd.DataFrame:
   """
   """
+  conv_id_df = conv_id_df.sort_values(by=['time', 'Properties_activityId'])
+  conv_id_df.reset_index(drop=True, inplace=True)
+  
   all_dialogs_from_db = []
   Properties_activityId = get_Properties_activityId(conv_id_df)
   Properties_InstanceId = get_Properties_InstanceId(conv_id_df, Properties_activityId)
@@ -201,38 +210,42 @@ def apply_business_logic(conv_id_df: pd.DataFrame) -> pd.DataFrame:
 
 # COMMAND ----------
 
-def orchestration_function_process_data(mode,table, expected_source_data_columns_expr,  start_date=None, end_date=None):
-    
+def orchestration_function_process_data(mode,table, expected_source_data_columns_expr,expected_output_schema,  start_date=None, end_date=None):
+    """
+    """
 
     if mode.lower() == 'yesterday':
         yesterday = (datetime.now() + timedelta(hours=5, minutes=30)) - timedelta(days = 1)
         dates = [datetime.strftime(yesterday, '%Y-%m-%d')]
-        
     else:
         dates = pd.date_range(start_date,end_date-timedelta(days=1),freq='d')
         dates = [datetime.strftime(date_, '%Y-%m-%d') for date_ in dates]
     
 
-    poc_df  = create_df(table,expected_source_data_columns_expr, dates) 
+    poc_df  = create_df(table,expected_source_data_columns_expr, dates)
+    
     filtered_conv = poc_df.where((F.col('conversationId').isNotNull()) & (F.col('conversationId').endswith("-in")))
     
-    expected_schema = "Dialog: string, ConversationId: string, start_time: string, end_time: string, AbandonedUserLeftDialog: boolean, AbandonedUserCancelledDialog: boolean, FailedDialog: boolean, AgentDialog: boolean"
+    expected_schema = """Dialog: string, ConversationId: string, start_time: string, end_time: string, 
+    AbandonedUserLeftDialog: boolean, AbandonedUserCancelledDialog: boolean, FailedDialog: boolean, AgentDialog: boolean"""
     
-    final_output = filtered_conv.groupBy('date','conversationId').applyInPandas(apply_business_logic, expected_schema)
+    final_output = (filtered_conv
+                    .groupBy('date','conversationId')
+                    .applyInPandas(apply_business_logic, expected_output_schema))
     
     return final_output
       
 
 # COMMAND ----------
 
-start_date = date(2022,11,10)
-end_date = date(2022,11,11)
+start_date = date(2022, 11, 10)
+end_date = date(2022, 11, 11)
 
-output = orchestration_function_process_data('',f"delta.`{config['database_path']}/batch/bronze`", expected_source_data_columns_expr, start_date, end_date)
+output = orchestration_function_process_data('',f"delta.`{config['database_path']}/batch/bronze`", expected_source_data_columns_expr,expected_output_schema, start_date, end_date)
 
 # COMMAND ----------
 
-output.write.format('delta').option('path',f"{config['main_directory']}/silver_jump").save()
+# output.write.mode('overwrite').format('delta').option('path',f"{config['main_directory']}/silver_jump").save()
 
 # COMMAND ----------
 
