@@ -3,6 +3,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ./temp
+
+# COMMAND ----------
+
 import pandas as pd
 import numpy as np
 from datetime import datetime, date, timedelta
@@ -53,10 +57,13 @@ def create_df(data_table, expected_source_data_columns_expr, date_range):
   
   """
     # missing column logic to be added if required
-  base_df = (spark.table(data_table)
-        .withColumn('date', F.to_date(F.col('time')))
+  base_df = (
+    # spark.table(data_table)
+            poc_df_temp
+             .withColumn('date', F.to_date(F.col('time')))
 #           .where(F.col('date').isin(date_range)) #  filter for required date range if required
          )
+  
   
   for _as,to in expected_source_data_columns_expr.items():
     base_df = base_df.withColumn(to,F.col(_as))
@@ -191,11 +198,16 @@ def get_final_df(df, dialog_group_df, all_dialogs_from_db):
 def apply_business_logic(conv_id_df: pd.DataFrame) -> pd.DataFrame:
   """
   """
+  # todo: apply try catch similar to how it is applied in utterance scoring logic
+
   conv_id_df = conv_id_df.sort_values(by=['time', 'Properties_activityId'])
   conv_id_df.reset_index(drop=True, inplace=True)
+  print(f"baseeeee-> {conv_id_df['Properties_text'].unique()}", file=sys.stderr)
   
   all_dialogs_from_db = []
   Properties_activityId = get_Properties_activityId(conv_id_df)
+  print(f"filtered properties: {Properties_activityId}", file=sys.stderr)
+  
   Properties_InstanceId = get_Properties_InstanceId(conv_id_df, Properties_activityId)
   dict_InitialStepAsync = get_instanceId_start_index(conv_id_df, Properties_InstanceId)
   dict_FinalStepAsync = get_instanceId_end_index(conv_id_df, Properties_InstanceId)
@@ -243,9 +255,11 @@ end_date = date(2022, 11, 11)
 
 output = orchestration_function_process_data('',f"delta.`{config['database_path']}/batch/bronze`", expected_source_data_columns_expr,expected_output_schema, start_date, end_date)
 
+output = output.withColumn('date', F.to_date(F.col('start_time')))
+
 # COMMAND ----------
 
-# output.write.mode('overwrite').format('delta').option('path',f"{config['main_directory']}/silver_jump").save()
+output.write.mode('overwrite').option('overwriteSchema','true').format('delta').option('path',f"{config['main_directory']}/silver_jump").save()
 
 # COMMAND ----------
 
