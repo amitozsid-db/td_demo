@@ -7,6 +7,10 @@
 
 # COMMAND ----------
 
+# display(poc_df_temp.where(F.col('properties.activityId')=='6EjzeJXcqOqE84mm1jtomd-in|0000012'))
+
+# COMMAND ----------
+
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -18,6 +22,10 @@ from datetime import datetime, date, timedelta
 import pyspark.sql.functions as F
 from collections import OrderedDict
 
+
+# COMMAND ----------
+
+# poc_df_temp.where((F.col('conversationId').isNotNull()) & (F.col('conversationId').endswith("-in") & (F.col('MasterBotConversationId')==""))).display()
 
 # COMMAND ----------
 
@@ -72,7 +80,7 @@ def create_df(data_table, expected_source_data_columns_expr, date_range):
     # spark.table(data_table)
             poc_df_temp
              .withColumn('date', F.to_date(F.col('time')))
-#           .where(F.col('date').isin(date_range)) #  filter for required date range if required
+          .where(F.col('date').isin(date_range)) #  filter for required date range if required
          )
   
   
@@ -181,7 +189,6 @@ def get_intent(df_activity_id):
 
 
 def process_each_activity_id_and_generate_df(Properties_activityId, df):
-
     time = []
     text = []
     activityId = []
@@ -196,26 +203,40 @@ def process_each_activity_id_and_generate_df(Properties_activityId, df):
     
     for activityid in Properties_activityId:
         df_activity_id = df[df['Properties_activityId'] == activityid][df['Name'].isin(['BotMessageReceived', 'LuisResult', 'QnAResult', 'UtteranceDisambiguated', 'FailedUtterance', 'BotMessageSend'])]
+        
+        try:
+          current_intent = get_intent(df_activity_id)
 
-        current_intent = get_intent(df_activity_id)
+          time.append(df_activity_id[df['Name'] == 'BotMessageReceived']['time'].values[0])
+          text.append(df_activity_id[df['Name'] == 'BotMessageReceived']['Properties_text'].values[0])
+          activityId.append(activityid)
+          intent.append(current_intent['Properties_intent'])
+          score.append(current_intent['Properties_intentScore'])
+          
+          app_name.append(df_activity_id[df['Name'] == 'BotMessageReceived']['AppRoleName'].values[0])
+          
+          child_app_name.append(current_intent['AppRoleName'])
+          conv_id.append(current_intent['Properties_conversationId'])
+          master_bot_conv_id.append(current_intent['Properties_MasterBotConversationId'])
+          agent_connection.append(current_intent['Agent_connection'])
+          agent_closed.append(current_intent['Agent_closed'])
+        except Exception as e: 
+          continue
 
-        time.append(df_activity_id[df['Name'] == 'BotMessageReceived']['time'].values[0])
-        text.append(df_activity_id[df['Name'] == 'BotMessageReceived']['Properties_text'].values[0])
-        activityId.append(activityid)
-        intent.append(current_intent['Properties_intent'])
-        score.append(current_intent['Properties_intentScore'])
+    #     if activityid == 'BJcPPvMctYeHaRF31fIO0D-in|0000005':
+    #       final_df = (pd.DataFrame(zip(time, text, activityId, intent, score, app_name, child_app_name, conv_id, master_bot_conv_id, agent_connection, agent_closed),
+    # columns=['timestamp', 'Properties_text', 'activityId', 'Intent', 'Intent_score', 'AppRoleName', 'Child_AppRoleName', 
+    # 'Properties_conversationId', 'Properties_MasterBotConversationId', 'Agent_Connection', 'Agent_Closed']))
+
+    #       print(
+    #         f"activityid in function ->  {activityid} and values = {list(zip(time, text, activityId, intent, score, app_name, child_app_name, conv_id, master_bot_conv_id, agent_connection, agent_closed))}",file=sys.stderr)
+
+    #       print(f"and the created dataframe is {final_df.head()}")
         
-        app_name.append(df_activity_id[df['Name'] == 'BotMessageReceived']['AppRoleName'].values[0])
-        
-        child_app_name.append(current_intent['AppRoleName'])
-        conv_id.append(current_intent['Properties_conversationId'])
-        master_bot_conv_id.append(current_intent['Properties_MasterBotConversationId'])
-        agent_connection.append(current_intent['Agent_connection'])
-        agent_closed.append(current_intent['Agent_closed'])
-        
-    final_df = (pd.DataFrame(zip(time, text, activityId, intent, score, app_name, child_app_name, conv_id, master_bot_conv_id, agent_connection, agent_closed), 
+    final_df = (pd.DataFrame(zip(time, text, activityId, intent, score, app_name, child_app_name, conv_id, master_bot_conv_id, agent_connection, agent_closed),
     columns=['timestamp', 'Properties_text', 'activityId', 'Intent', 'Intent_score', 'AppRoleName', 'Child_AppRoleName', 
     'Properties_conversationId', 'Properties_MasterBotConversationId', 'Agent_Connection', 'Agent_Closed']))
+
     
     final_df['ConversationId'] = np.where(final_df['Properties_MasterBotConversationId'].isna(), final_df.Properties_conversationId, final_df.Properties_MasterBotConversationId)
 
@@ -282,9 +303,15 @@ def compute_score(row):
 
 # COMMAND ----------
 
+
+
+# COMMAND ----------
+
 def get_master_and_child_scores(final_df):
     final_df[['master_score', 'child_score']] = final_df.apply(compute_score, axis=1)
     text_to_remove = ['yes', 'no', 'no, thanks.']
+    final_df.Properties_text.fillna(value=np.nan, inplace=True) # added to replicate ealier behaviour, where nan will be filtered in the next comparison. right now after conversion we get None object which does nor filter out for some reason
+
     final_df = final_df[~final_df['Properties_text'].str.lower().isin([x.lower() for x in text_to_remove])]
 
     final_df.reset_index(drop=True, inplace=True)
@@ -394,7 +421,6 @@ def delete_conversation_between_agent_and_user(final_df):
         connection_index = conv_id_df[conv_id_df['Agent_Connection']].index.tolist()
         closed_index = conv_id_df[conv_id_df['Agent_Closed']].index.tolist()
 
-
         if len(connection_index) > 0 and len(connection_index) == len(closed_index):
             for i in range(len(connection_index)):
                 connection_start_index = connection_index[i]
@@ -419,7 +445,7 @@ def prepare_final_df(final_df, all_activity_ids_from_db):
                          'master_score', 'child_score','final_score']]
     
     # final_df = final_df[~final_df.activityId.isin(all_activity_ids_from_db)]
-    final_df.reset_index(drop=True, inplace=True)
+    # final_df.reset_index(drop=True, inplace=True)
 
     return final_df
 
@@ -430,13 +456,14 @@ def prepare_final_df(final_df, all_activity_ids_from_db):
 def apply_transformation_logic(conv_id_df):
   """
   """
-
   try:
+    warnings.filterwarnings('ignore')
     conv_id_df = conv_id_df.sort_values(by=['time', 'Properties_activityId'])
     conv_id_df.reset_index(drop=True, inplace=True)
-    
     Properties_activityId = get_Properties_activityId(conv_id_df)
-    
+
+    if len(Properties_activityId) == 0:
+      return pd.DataFrame(columns=output_columns)
 
     final_df = process_each_activity_id_and_generate_df(Properties_activityId, conv_id_df)
     final_df = get_master_and_child_scores(final_df)
@@ -446,11 +473,12 @@ def apply_transformation_logic(conv_id_df):
     final_df = delete_conversation_between_agent_and_user(final_df)
     final_df = prepare_final_df(final_df, [])
     final_df = final_df.astype(str)
-  except:
+  except Exception as e:
+    print(f"exception captured {e}",file=sys.stderr)
     return pd.DataFrame(columns=output_columns)
 
   return final_df
-  
+
 
 # COMMAND ----------
 
@@ -466,7 +494,7 @@ def orchestration_function_process_data(mode,table, expected_source_data_columns
     poc_df  = create_df(table,expected_source_data_columns_expr, dates)
 
     filtered_conv = poc_df.where((F.col('conversationId').isNotNull()) & (F.col('conversationId').endswith("-in")))
-  
+    print(f"+++++++++++ NEW RUN +++++++++++",file=sys.stderr)
     final_output = (filtered_conv
                     .groupBy('date','conversationId')
                     .applyInPandas(apply_transformation_logic, expected_output_schema))
@@ -481,44 +509,55 @@ end_date = date(2022, 11, 11)
 
 output = orchestration_function_process_data('',f"delta.`{config['database_path']}/batch/bronze`", expected_source_data_columns_expr,expected_output_schema, start_date, end_date)
 
-display(output)
+display(output)#.where(F.col('activityId')== 'BJcPPvMctYeHaRF31fIO0D-in|0000005'))
 # output.write.mode('overwrite').option('overwriteSchema','true').format('delta').option('path',f"{config['main_directory']}/silver_jump_usecase2").save()
 
 
 # COMMAND ----------
 
-def  write_first_time(df, target_location):
-  """
-  partition if necessary
-  """
-  (df.write.format('delta').mode('overwrite')
-   .option('overwriteSchema','true').option('path', target_location)
-   .save())
-  return None
-
-def write_data_frame(updates, target_table):
-  """ 
-  partition if necessary
-  """
-  try:  
-    output_table = DeltaTable.forPath(spark, target_table)                                                                                        
-    (output_table
-     .alias("t")
-     .merge(
-        updates.alias("s"), 
-        "t.ConversationId = s.ConversationId  and t.activityId = s.activityId")
-     .whenMatchedUpdateAll()
-     .whenNotMatchedInsertAll()
-     .execute())
-  except AnalysisException as e:
-    if e.getErrorClass() == 'DELTA_MISSING_DELTA_TABLE':
-      write_first_time(updates, target_table)
-    else:
-       print(f"Merge failed {e}", file=sys.stderr)
-        
-    return None  
+output.select('activityId').distinct().count()
 
 # COMMAND ----------
 
-# spark.conf.set('spark.sql.execution.arrow.pyspark.enabled','true')
+output.where(F.col('activityId').isin(['8GeIeR5xUiZ8y3MYkZDePH-in|0000001','8GeIeR5xUiZ8y3MYkZDePH-in|0000011','6EjzeJXcqOqE84mm1jtomd-in|0000012'])).display()
+
+# COMMAND ----------
+
+# 1. activity id duplicates
+
+# COMMAND ----------
+
+# def  write_first_time(df, target_location):
+#   """
+#   partition if necessary
+#   """
+#   (df.write.format('delta').mode('overwrite')
+#    .option('overwriteSchema','true').option('path', target_location)
+#    .save())
+#   return None
+
+# def write_data_frame(updates, target_table):
+#   """ 
+#   partition if necessary
+#   """
+#   try:  
+#     output_table = DeltaTable.forPath(spark, target_table)                                                                                        
+#     (output_table
+#      .alias("t")
+#      .merge(
+#         updates.alias("s"), 
+#         "t.ConversationId = s.ConversationId  and t.activityId = s.activityId")
+#      .whenMatchedUpdateAll()
+#      .whenNotMatchedInsertAll()
+#      .execute())
+#   except AnalysisException as e:
+#     if e.getErrorClass() == 'DELTA_MISSING_DELTA_TABLE':
+#       write_first_time(updates, target_table)
+#     else:
+#        print(f"Merge failed {e}", file=sys.stderr)
+        
+#     return None  
+
+# COMMAND ----------
+
 
